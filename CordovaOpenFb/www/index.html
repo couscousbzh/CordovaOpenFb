@@ -1,0 +1,287 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>OpenFB Sample</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src *; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline' *; connect-src *; img-src *; font-src *; frame-src *;">
+
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+
+    <link rel="stylesheet" href="ratchet.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="content content-padded">
+        <button class="btn btn-block" onclick="login()">Login with Facebook</button>
+        <hr />
+        <button class="btn btn-block" onclick="getInfo()">Get My Info</button>
+        <p>Name: <span id="userName"></span></p>
+        <img id="userPic" />
+        <hr />
+        <textarea id="Message" placeholder="What's on your mind?" rows="5"></textarea>
+        <button class="btn btn-block" onclick="share()">Share</button>
+        <hr />
+        <!--<img src="logo.jpg" />-->
+        <canvas id="c" width="200" height="150"></canvas>
+        <button class="btn btn-block" onclick="postImage()">PostImage (image url on internet)</button>
+        <button class="btn btn-block" onclick="postImage2()">PostImage (image url on the phone)</button>
+        <hr />
+        <p>Complete Facebook Logout. After logging out, you'll have to login again and provide your Facebook credentials.</p>
+        <button class="btn btn-block" onclick="logout()">Logout</button>
+        <hr />
+        <button class="btn btn-block" onclick="readPermissions()">Read Permissions</button>
+        <p>Revoke App Permissions. After revoking permissions, you'll have to grant permissions again when logging in.</p>
+        <button class="btn btn-block" onclick="revoke()">Revoke Permissions</button>
+    </div>
+
+
+
+
+
+    <!--cordova.js is automatically injected by the Cordova build process-->
+    <script src="cordova.js"></script>
+    <script src="openfb.js"></script>
+
+    <script src="jquery-2.1.4.min.js"></script>
+    <script src="base64binary.js"></script>
+
+    <script>
+
+        // Defaults to sessionStorage for storing the Facebook token
+        openFB.init({ appId: '997941953606116' }); //App Facebook WebSite-Dev: 997941953606116 WebSite-Prod : 997940780272900, Matador : 1671360816443358
+
+        var token = '';
+
+        populateCanvas();
+
+        //  Uncomment the line below to store the Facebook token in localStorage instead of sessionStorage
+        //  openFB.init({appId: 'YOUR_FB_APP_ID', tokenStore: window.localStorage});
+
+        function login() {
+            openFB.login(
+                    function (response) {
+                        if (response.status === 'connected') {
+                            token = response.authResponse.accessToken;
+                            alert('Facebook login succeeded, got access token: ' + response.authResponse.accessToken);
+                        } else {
+                            alert('Facebook login failed: ' + response.error);
+                        }
+                    }, { scope: 'email,read_stream,publish_actions' });
+        }
+
+        function getInfo() {
+            openFB.api({
+                path: '/me',
+                success: function (data) {
+                    console.log(JSON.stringify(data));
+                    document.getElementById("userName").innerHTML = data.name;
+                    document.getElementById("userPic").src = 'http://graph.facebook.com/' + data.id + '/picture?type=small';
+                },
+                error: errorHandler
+            });
+        }
+
+        function share() {
+            openFB.api({
+                method: 'POST',
+                path: '/me/feed',
+                params: {
+                    message: document.getElementById('Message').value || 'Testing Facebook APIs'
+                },
+                success: function () {
+                    alert('the item was posted on Facebook');
+                },
+                error: errorHandler
+            });
+        }
+
+        function postImage() {
+            openFB.api({
+                method: 'POST',
+                path: '/me/photos',
+                params: {
+                    message: document.getElementById('Message').value || 'Testing Facebook APIs',
+                    url: 'http://reactor.fr/singe.jpg'
+                },
+                success: function () {
+                    alert('the item was posted on Facebook');
+                },
+                error: errorHandler
+            });
+        }
+
+        function postImage2() {
+
+            var canvas = document.getElementById("c");
+            var data = canvas.toDataURL("image/png");
+            var encodedPng = data.substring(data.indexOf(',') + 1, data.length);
+            var decodedPng = Base64Binary.decode(encodedPng);
+            
+            if (token.length > 0)
+                postImageToFacebook2(token, "Reactor", "image/png", decodedPng, "www.reactor.fr");
+            else
+                alert('token vide');
+        }
+
+        function postImage3() {
+
+           
+        }
+
+
+
+
+        function readPermissions() {
+            openFB.api({
+                method: 'GET',
+                path: '/me/permissions',
+                success: function (result) {
+                    alert(JSON.stringify(result.data));
+                },
+                error: errorHandler
+            });
+        }
+
+        function revoke() {
+            openFB.revokePermissions(
+                    function () {
+                        alert('Permissions revoked');
+                    },
+                    errorHandler);
+        }
+
+        function logout() {
+            openFB.logout(
+                    function () {
+                        alert('Logout successful');
+                    },
+                    errorHandler);
+        }
+
+        function errorHandler(error) {
+            alert(error.message);
+        }
+
+
+
+        /*****************/
+        
+        //https://github.com/DanBrown180/html5-canvas-post-to-facebook-base64/blob/master/facebook-canvas.js
+
+
+        // Populate the canvas
+        function populateCanvas() {
+            var c = document.getElementById("c");
+            var context = c.getContext("2d");
+            context.font = "20px Georgia";
+            context.fillText("Posted from Cordova Mobile App", 10, 50);
+            var imageObj = new Image();
+            imageObj.onload = function () {
+                context.drawImage(imageObj, 69, 50);
+            };
+            //imageObj.src = 'http://www.html5canvastutorials.com/demos/assets/darth-vader.jpg';
+            imageObj.src = 'logo.jpg';
+        }
+
+
+        // Post a BASE64 Encoded PNG Image to facebook
+        function PostImageToFacebook(authToken) {
+            var canvas = document.getElementById("c");
+            var imageData = canvas.toDataURL("image/png");
+            try {
+                blob = dataURItoBlob(imageData);
+            } catch (e) {
+                console.log(e);
+            }
+            var fd = new FormData();
+            fd.append("access_token", authToken);
+            fd.append("source", blob);
+            fd.append("message", "Photo Text");
+            try {
+                $.ajax({
+                    url: "https://graph.facebook.com/me/photos?access_token=" + authToken,
+                    type: "POST",
+                    data: fd,
+                    processData: false,
+                    contentType: false,
+                    cache: false,
+                    success: function (data) {
+                        console.log("success " + data);
+                        $("#poster").html("Posted Canvas Successfully");
+                    },
+                    error: function (shr, status, data) {
+                        console.log("error " + data + " Status " + shr.status);
+                    },
+                    complete: function () {
+                        console.log("Posted to facebook");
+                    }
+                });
+
+            } catch (e) {
+                console.log(e);
+            }
+        }
+
+        // Convert a data URI to blob
+        function dataURItoBlob(dataURI) {
+            var byteString = atob(dataURI.split(',')[1]);
+            var ab = new ArrayBuffer(byteString.length);
+            var ia = new Uint8Array(ab);
+            for (var i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            return new Blob([ab], {
+                type: 'image/png'
+            });
+        }
+
+
+        /*****/
+   
+
+        function postImageToFacebook2(authToken, filename, mimeType, imageData, message) {
+            // this is the multipart/form-data boundary we'll use
+            var boundary = '----ThisIsTheBoundary1234567890';
+            // let's encode our image file, which is contained in the var
+            var formData = '--' + boundary + '\r\n'
+            formData += 'Content-Disposition: form-data; name="source"; filename="' + filename + '"\r\n';
+            formData += 'Content-Type: ' + mimeType + '\r\n\r\n';
+            for (var i = 0; i < imageData.length; ++i) {
+                formData += String.fromCharCode(imageData[i] & 0xff);
+            }
+            formData += '\r\n';
+            formData += '--' + boundary + '\r\n';
+            formData += 'Content-Disposition: form-data; name="message"\r\n\r\n';
+            formData += message + '\r\n'
+            formData += '--' + boundary + '--\r\n';
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', 'https://graph.facebook.com/me/photos?access_token=' + authToken, true);
+            xhr.onload = xhr.onerror = function () {
+                console.log(xhr.responseText);
+            };
+            xhr.setRequestHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
+
+            //Patch, sendAsBinary est fait pour FF mais chrome n'aime pas... 
+            if (!XMLHttpRequest.prototype.sendAsBinary) {
+                XMLHttpRequest.prototype.sendAsBinary = function (datastr) {
+                    function byteValue(x) {
+                        return x.charCodeAt(0) & 0xff;
+                    }
+                    var ords = Array.prototype.map.call(datastr, byteValue);
+                    var ui8a = new Uint8Array(ords);
+                    this.send(ui8a.buffer);
+                }
+            }
+
+            xhr.sendAsBinary(formData); //ca plante la
+
+           
+        };
+
+
+
+    </script>
+</body>
+
+</html>
