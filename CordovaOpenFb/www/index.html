@@ -22,9 +22,13 @@
         <button class="btn btn-block" onclick="share()">Share</button>
         <hr />
         <!--<img src="logo.jpg" />-->
-        <canvas id="c" width="400" height="200"></canvas>
+        <canvas id="c"></canvas>
+        <h3>Post to my wall</h3>
         <button class="btn btn-block" onclick="postImage()">PostImage (image url on internet)</button>
-        <button class="btn btn-block" onclick="postImage2()">PostImage (image url on the phone)</button>
+        <button class="btn btn-block" onclick="postImage2()">PostImage (image from the phone)</button>
+        <h3>Post to a business page (reactor35)</h3>
+        <button class="btn btn-block" onclick="postImage3()">PostImage (notification on wall)</button>
+       
         <hr />
         <p>Complete Facebook Logout. After logging out, you'll have to login again and provide your Facebook credentials.</p>
         <button class="btn btn-block" onclick="logout()">Logout</button>
@@ -46,27 +50,28 @@
     <script src="base64binary.js"></script>
 
     <script>
+        
+
+        //App Facebook WebSite-Dev: 997941953606116 WebSite-Prod : 997940780272900,
 
         // Defaults to sessionStorage for storing the Facebook token
-        openFB.init({ appId: '997941953606116' }); //App Facebook WebSite-Dev: 997941953606116 WebSite-Prod : 997940780272900, Matador : 1671360816443358
-
-        var token = '';
-
-        populateCanvas();
+        //openFB.init({ appId: '997941953606116' }); 
 
         //  Uncomment the line below to store the Facebook token in localStorage instead of sessionStorage
-        //  openFB.init({appId: 'YOUR_FB_APP_ID', tokenStore: window.localStorage});
-
+        openFB.init({appId: '997941953606116', tokenStore: window.localStorage});
+        //Garde en mémoire l'authentification, ca évite de se reloguer...
+        
+       
         function login() {
             openFB.login(
                     function (response) {
                         if (response.status === 'connected') {
-                            token = response.authResponse.accessToken;
+                            usertoken = response.authResponse.accessToken;
                             alert('Facebook login succeeded, got access token: ' + response.authResponse.accessToken);
                         } else {
                             alert('Facebook login failed: ' + response.error);
                         }
-                    }, { scope: 'email,read_stream,publish_actions' });
+                    }, { scope: 'email,read_stream,publish_actions,publish_stream,user_likes' });
         }
 
         function getInfo() {
@@ -93,44 +98,8 @@
                 },
                 error: errorHandler
             });
-        }
-
-        function postImage() {
-            openFB.api({
-                method: 'POST',
-                path: '/me/photos',
-                params: {
-                    message: document.getElementById('Message').value || 'Testing Facebook APIs',
-                    url: 'http://reactor.fr/singe.jpg'
-                },
-                success: function () {
-                    alert('the item was posted on Facebook');
-                },
-                error: errorHandler
-            });
-        }
-
-        function postImage2() {
-
-            var canvas = document.getElementById("c");
-            var data = canvas.toDataURL("image/png");
-            var encodedPng = data.substring(data.indexOf(',') + 1, data.length);
-            var decodedPng = Base64Binary.decode(encodedPng);
-            
-            if (token.length > 0)
-                postImageToFacebook2(token, "Reactor", "image/png", decodedPng, "www.reactor.fr");
-            else
-                alert('token vide');
-        }
-
-        function postImage3() {
-
-           
-        }
-
-
-
-
+        }       
+        
         function readPermissions() {
             openFB.api({
                 method: 'GET',
@@ -161,85 +130,100 @@
         function errorHandler(error) {
             alert(error.message);
         }
+             
 
+        /*****/
+        //My additionnal fonctionalities :
 
+        var usertoken = '';
 
-        /*****************/
-        
-        //https://github.com/DanBrown180/html5-canvas-post-to-facebook-base64/blob/master/facebook-canvas.js
+        populateCanvas();       
 
-
-        // Populate the canvas
-        function populateCanvas() {
-            var c = document.getElementById("c");
-            var context = c.getContext("2d");
-            context.font = "20px Georgia";
-            context.fillText("Posted from Cordova Mobile App", 10, 50);
-            var imageObj = new Image();
-            imageObj.onload = function () {
-                context.drawImage(imageObj, 69, 50);
-            };
-            //imageObj.src = 'http://www.html5canvastutorials.com/demos/assets/darth-vader.jpg';
-            imageObj.src = 'logo.jpg';
-        }
-
-
-        // Post a BASE64 Encoded PNG Image to facebook
-        function PostImageToFacebook(authToken) {
-            var canvas = document.getElementById("c");
-            var imageData = canvas.toDataURL("image/png");
-            try {
-                blob = dataURItoBlob(imageData);
-            } catch (e) {
-                console.log(e);
+        //At first launch, check if user is already authenticate
+        openFB.getLoginStatus(
+            function firstload(loginStatus) {
+                //console.log(loginStatus);
+                //console.log(loginStatus.authResponse.accessToken);
+                //console.log(loginStatus.status);
+                if (loginStatus.status === 'connected') {
+                    //alert('you are already connected');
+                    usertoken = loginStatus.authResponse.accessToken;
+                    getInfo();
+                }
+                else {
+                    alert('you are not connected');
+                }
             }
-            var fd = new FormData();
-            fd.append("access_token", authToken);
-            fd.append("source", blob);
-            fd.append("message", "Photo Text");
-            try {
-                $.ajax({
-                    url: "https://graph.facebook.com/me/photos?access_token=" + authToken,
-                    type: "POST",
-                    data: fd,
-                    processData: false,
-                    contentType: false,
-                    cache: false,
-                    success: function (data) {
-                        console.log("success " + data);
-                        $("#poster").html("Posted Canvas Successfully");
-                    },
-                    error: function (shr, status, data) {
-                        console.log("error " + data + " Status " + shr.status);
-                    },
-                    complete: function () {
-                        console.log("Posted to facebook");
-                    }
-                });
+        );
 
-            } catch (e) {
-                console.log(e);
-            }
-        }
+        //Simple post with a online image
+        function postImage() {
+            console.log('postImage1');
 
-        // Convert a data URI to blob
-        function dataURItoBlob(dataURI) {
-            var byteString = atob(dataURI.split(',')[1]);
-            var ab = new ArrayBuffer(byteString.length);
-            var ia = new Uint8Array(ab);
-            for (var i = 0; i < byteString.length; i++) {
-                ia[i] = byteString.charCodeAt(i);
-            }
-            return new Blob([ab], {
-                type: 'image/png'
+            openFB.api({
+                method: 'POST',
+                path: '/me/photos',
+                params: {
+                    message: 'a pic form the internet',
+                    url: 'http://reactor.fr/singe.jpg' //image on the internet
+                },
+                success: function () {
+                    alert('the item was posted on Facebook');
+                },
+                error: errorHandler
             });
         }
 
+        //Post with a local image (could be from camera for exemple, but here just a image from the app)
+        function postImage2() {
+            console.log('postImage2');
 
-        /*****/
-   
+            var canvas = document.getElementById("c");
+            var data = canvas.toDataURL("image/png");
+            var encodedPng = data.substring(data.indexOf(',') + 1, data.length);
+            var decodedPng = Base64Binary.decode(encodedPng);
 
-        function postImageToFacebook2(authToken, filename, mimeType, imageData, message) {
+            var filename = 'a personal pic';
+            var mimeType = 'image/png';
+            var message = 'Hey mate la tof !';
+            var pageId = 'me'; //post on my personal wall
+            var action = 'photos';
+
+            if (usertoken.length > 0) {
+                postImageToFacebook(usertoken, filename, mimeType, decodedPng, message, pageId, action);
+                alert('the item was posted on Facebook');
+            }
+            else
+                alert('token vide');
+        }
+
+        //Same but post to a business page
+        //This will result to a simple 'notification' to the page, not a real post on the wall, but at least we can see it. 
+        function postImage3() {
+
+            console.log('postImage3');
+            
+            var canvas = document.getElementById("c");
+            var data = canvas.toDataURL("image/png");
+            var encodedPng = data.substring(data.indexOf(',') + 1, data.length);
+            var decodedPng = Base64Binary.decode(encodedPng);
+
+            var filename = 'a pic';
+            var mimeType = 'image/png';
+            var message = 'Hey mate la tof !';
+            var pageId = 'reactor35'; //post on a business wall
+            var action = 'photos';
+
+            if (usertoken.length > 0) {
+                postImageToFacebook(usertoken, filename, mimeType, decodedPng, message, pageId, action);
+                alert('the item was posted on Facebook');
+            }
+            else
+                alert('token vide');
+
+        }
+
+        function postImageToFacebook(authToken, filename, mimeType, imageData, message, fbId, fbAction) {
             // this is the multipart/form-data boundary we'll use
             var boundary = '----ThisIsTheBoundary1234567890';
             // let's encode our image file, which is contained in the var
@@ -256,13 +240,13 @@
             formData += '--' + boundary + '--\r\n';
 
             var xhr = new XMLHttpRequest();
-            xhr.open('POST', 'https://graph.facebook.com/me/photos?access_token=' + authToken, true);
+            xhr.open('POST', 'https://graph.facebook.com/' + fbId + '/' + fbAction + '?access_token=' + authToken, true);
             xhr.onload = xhr.onerror = function () {
                 console.log(xhr.responseText);
             };
             xhr.setRequestHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
 
-            //Patch, sendAsBinary est fait pour FF mais chrome n'aime pas... 
+            //Patch, sendAsBinary est codé pour FF mais chrome n'aime pas... 
             if (!XMLHttpRequest.prototype.sendAsBinary) {
                 XMLHttpRequest.prototype.sendAsBinary = function (datastr) {
                     function byteValue(x) {
@@ -274,12 +258,29 @@
                 }
             }
 
-            xhr.sendAsBinary(formData); //ca plante la
+            xhr.sendAsBinary(formData); //ca plante la si ya pas le code patch ci dessus
 
-           
         };
+        
+        // Populate the canvas
+        function populateCanvas() {
+            var canvas = document.getElementById("c");
+            var context = c.getContext("2d");
+            var startTime = new Date().getTime();
+                    
+            canvas.width = 300;
+            canvas.height = 200;
 
+            var imageObj = new Image();
+            imageObj.onload = function () {               
+                context.drawImage(imageObj, 0, 0, imageObj.width, imageObj.height, 0, 0, 300, 200);
 
+                context.font = "12px Georgia";
+                context.fillStyle = "#FF0000";
+                context.fillText("Posted from Cordova Mobile App : " + startTime, 10, 10);
+            };        
+            imageObj.src = 'touriste.jpg';
+        }
 
     </script>
 </body>
