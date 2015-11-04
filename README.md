@@ -8,6 +8,7 @@ Avec quelques ajouts pour poster une image/photo sur son mur facebook.
 
 - un bouton post avec une image sur internet
 - un bouton post avec une image dans l'application (plus tard depuis la camera) avec un canvas.
+- un bouton post sur une page business facebook
 
 Le code fonctionne sur mon Android (Wiko Ridge) mais pas sur iOS (le bouton Login affiche une page blanche)
 
